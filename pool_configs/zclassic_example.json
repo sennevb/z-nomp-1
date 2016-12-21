@@ -1,6 +1,6 @@
 {
     "enabled": false,
-    "coin": "zclassic_testnet.json",
+    "coin": "zclassic.json",
 
     "address": "tmRQRGpUMYg78cJAjvKXyNTqKXugWGD1Zde",
     "_comment_address": "a transparent address to send coinbase rewards to and to transfer to zAddress.",
