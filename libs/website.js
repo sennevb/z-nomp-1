@@ -43,7 +43,8 @@ var pageFiles = {
         'miner.html': 'miner',
         'miner_stats.html': 'miner_stats',
         'user_shares.html': 'user_shares',
-        'getting_started.html': 'getting_started'
+        'getting_started.html': 'getting_started',
+        'stats.html': 'stats'
     };
 
     var pageTemplates = {};
