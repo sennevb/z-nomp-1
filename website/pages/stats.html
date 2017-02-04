@@ -156,14 +156,14 @@
 <div class="pure-g-r" id="boxesLower">
     <div class="pure-u-1-1">
         <div class="boxStats" id="boxStatsRight">
-			<div class="boxLowerHeader">Miner's Jackpot</div>
+			<div class="boxLowerHeader">Blocks Found</div>
             <div class="boxStatsList">
 			{{ for(var pool in it.stats.pools) { }} 
 			{{ for(var b in it.stats.pools[pool].pending.blocks) { }}
 			{{ var block = it.stats.pools[pool].pending.blocks[b].split(":"); }}
 				<div style="margin-bottom: 9px; background-color: #eeeeee; min-width:600px;"><i class="fa fa-bars"></i>
 					<small>Block:</small> <a href="https://explorer.zcha.in/blocks/{{=block[0]}}" target="_blank">{{=block[2]}}</a> <span style="float:right; color: red;"><small>*PENDING*</small></span>
-					<div><i class="fa fa-gavel"></i><small>Lucky Winner:</small> <a href="/workers/{{=block[3].split('.')[0]}}">{{=block[3]}}</a></div>
+					<div><i class="fa fa-gavel"></i><small>Mined By:</small> <a href="/workers/{{=block[3].split('.')[0]}}">{{=block[3]}}</a></div>
 				</div>
 			{{ } }}
 			{{ } }}
@@ -173,7 +173,7 @@
 			{{ var block = it.stats.pools[pool].confirmed.blocks[b].split(":"); }}
 				<div style="margin-bottom: 9px; background-color: #eeeeee; min-width:600px;"><i class="fa fa-bars"></i>
 					<small>Block:</small> <a href="https://explorer.zcha.in/blocks/{{=block[0]}}" target="_blank">{{=block[2]}}</a> <span style="float:right; color: green;"><small>*PAID*</small></span>
-					<div><i class="fa fa-gavel"></i><small>Lucky Winner:</small> <a href="/workers/{{=block[3].split('.')[0]}}">{{=block[3]}}</a></div>
+					<div><i class="fa fa-gavel"></i><small>Mined By:</small> <a href="/workers/{{=block[3].split('.')[0]}}">{{=block[3]}}</a></div>
 				</div>
 			{{ } }}
 			{{ } }}
