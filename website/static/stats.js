@@ -1,10 +1,10 @@
-var poolWorkerData;
+//var poolWorkerData;
 var poolHashrateData;
-var poolBlockData;
+//var poolBlockData;
 
-var poolWorkerChart;
+//var poolWorkerChart;
 var poolHashrateChart;
-var poolBlockChart;
+//var poolBlockChart;
 
 var statData;
 var poolKeys;
@@ -29,42 +29,43 @@ function buildChartData(){
         for (var f = 0; f < poolKeys.length; f++){
             var pName = poolKeys[f];
             var a = pools[pName] = (pools[pName] || {
-                hashrate: [],
-                workers: [],
-                blocks: []
+                hashrate: []//,
+                //workers: [],
+                //blocks: []
             });
             if (pName in statData[i].pools){
+								
                 a.hashrate.push([time, statData[i].pools[pName].hashrate]);
-                a.workers.push([time, statData[i].pools[pName].workerCount]);
-                a.blocks.push([time, statData[i].pools[pName].blocks.pending])
+                //a.workers.push([time, statData[i].pools[pName].workerCount]);
+                //a.blocks.push([time, statData[i].pools[pName].blocks.pending])
             }
             else{
                 a.hashrate.push([time, 0]);
-                a.workers.push([time, 0]);
-                a.blocks.push([time, 0])
+                //a.workers.push([time, 0]);
+                //a.blocks.push([time, 0])
             }
 
         }
 
     }
 
-    poolWorkerData = [];
+    //poolWorkerData = [];
     poolHashrateData = [];
-    poolBlockData = [];
+    //poolBlockData = [];
 
     for (var pool in pools){
-        poolWorkerData.push({
+		/*poolWorkerData.push({
             key: pool,
             values: pools[pool].workers
-        });
+        });*/
         poolHashrateData.push({
             key: pool,
             values: pools[pool].hashrate
         });
-        poolBlockData.push({
+        /*poolBlockData.push({
             key: pool,
             values: pools[pool].blocks
-        })
+        })*/
     }
 }
 
@@ -75,7 +76,7 @@ function getReadableHashRateString(hashrate){
     hashrate = (hashrate * 2);
     var i = Math.floor((Math.log(hashrate/1000) / Math.log(1000)) - 1);
     hashrate = (hashrate/1000) / Math.pow(1000, i + 1);
-    return Math.round(hashrate) + byteUnits[i];
+    return hashrate.toFixed(2) + byteUnits[i];
 }
 
 function timeOfDayFormat(timestamp){
@@ -86,7 +87,7 @@ function timeOfDayFormat(timestamp){
 
 function displayCharts(){
 
-    nv.addGraph(function() {
+    /*nv.addGraph(function() {
         poolWorkerChart = nv.models.stackedAreaChart()
             .margin({left: 40, right: 40})
             .x(function(d){ return d[0] })
@@ -101,12 +102,11 @@ function displayCharts(){
         d3.select('#poolWorkers').datum(poolWorkerData).call(poolWorkerChart);
 
         return poolWorkerChart;
-    });
-
+    });*/
 
     nv.addGraph(function() {
         poolHashrateChart = nv.models.lineChart()
-            .margin({left: 60, right: 40})
+            .margin({left: 80, right: 30})
             .x(function(d){ return d[0] })
             .y(function(d){ return d[1] })
             .useInteractiveGuideline(true);
@@ -122,8 +122,7 @@ function displayCharts(){
         return poolHashrateChart;
     });
 
-
-    nv.addGraph(function() {
+    /*nv.addGraph(function() {
         poolBlockChart = nv.models.multiBarChart()
             .x(function(d){ return d[0] })
             .y(function(d){ return d[1] });
@@ -135,13 +134,13 @@ function displayCharts(){
         d3.select('#poolBlocks').datum(poolBlockData).call(poolBlockChart);
 
         return poolBlockChart;
-    });
+    });*/
 }
 
 function TriggerChartUpdates(){
-    poolWorkerChart.update();
+    //poolWorkerChart.update();
     poolHashrateChart.update();
-    poolBlockChart.update();
+    //poolBlockChart.update();
 }
 
 nv.utils.windowResize(TriggerChartUpdates);
@@ -155,7 +154,6 @@ $.getJSON('/api/pool_stats', function(data){
 statsSource.addEventListener('message', function(e){
     var stats = JSON.parse(e.data);
     statData.push(stats);
-
 
     var newPoolAdded = (function(){
         for (var p in stats.pools){
@@ -173,13 +171,13 @@ statsSource.addEventListener('message', function(e){
         var time = stats.time * 1000;
         for (var f = 0; f < poolKeys.length; f++) {
             var pool =  poolKeys[f];
-            for (var i = 0; i < poolWorkerData.length; i++) {
+            /*for (var i = 0; i < poolWorkerData.length; i++) {
                 if (poolWorkerData[i].key === pool) {
                     poolWorkerData[i].values.shift();
                     poolWorkerData[i].values.push([time, pool in stats.pools ? stats.pools[pool].workerCount : 0]);
                     break;
                 }
-            }
+            }*/
             for (var i = 0; i < poolHashrateData.length; i++) {
                 if (poolHashrateData[i].key === pool) {
                     poolHashrateData[i].values.shift();
@@ -187,16 +185,14 @@ statsSource.addEventListener('message', function(e){
                     break;
                 }
             }
-            for (var i = 0; i < poolBlockData.length; i++) {
+            /*for (var i = 0; i < poolBlockData.length; i++) {
                 if (poolBlockData[i].key === pool) {
                     poolBlockData[i].values.shift();
                     poolBlockData[i].values.push([time, pool in stats.pools ? stats.pools[pool].blocks.pending : 0]);
                     break;
                 }
-            }
+            }*/
         }
         TriggerChartUpdates();
     }
-
-
 });
