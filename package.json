@@ -32,7 +32,7 @@
         "url": "https://github.com/joshuayabut/z-nomp.git"
     },
     "dependencies": {
-        "stratum-pool": "git+https://github.com/joshuayabut/node-stratum-pool.git",
+        "stratum-pool": "git+https://github.com/hellcatz/node-stratum-pool.git",
         "dateformat": "*",
         "node-json-minify": "*",
         "redis": "*",
