@@ -124,6 +124,12 @@
     {{ for(var pool in it.stats.pools) { }}
     <div class="pure-u-1-2">
         <div class="boxStats" id="boxStatsLeft">
+		{{ for(var pool in it.poolsConfigs) {
+                var info = JSON.stringify({
+                    coin: it.poolsConfigs[pool].coin,
+                    algo: it.poolsConfigs[pool].coin.algorithm
+                }).replace(/"/g, '&quot;');
+            }}
             <div class="boxLowerHeader">{{=it.poolsConfigs[pool].coin}} Stats</div>
             <div class="boxStatsList">
                 <div>
