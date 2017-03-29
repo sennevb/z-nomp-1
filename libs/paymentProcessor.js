@@ -50,6 +50,10 @@ function SetupForPool(logger, poolOptions, setupFinished){
     var logSystem = 'Payments';
     var logComponent = coin;
     var opidCount = 0;
+    
+    var requireShielding = poolOptions.coin.requireShielding === true;
+    
+    logger.special(logSystem, logComponent, logComponent + ' requireShielding: ' + requireShielding);
 
     var daemon = new Stratum.daemon.interface([processingConfig.daemon], function(severity, message){
         logger[severity](logSystem, logComponent, message);
@@ -240,7 +244,7 @@ function SetupForPool(logger, poolOptions, setupFinished){
             }
         );
     }
-    
+
     // send z_address balance to t_address
     function sendZToT (callback, zBalance) {
         if (callback === true)
@@ -253,12 +257,12 @@ function SetupForPool(logger, poolOptions, setupFinished){
             logger.warning(logSystem, logComponent, 'sendZToT is waiting, too many z_sendmany operations already in progress.');
             return;
         }
-        
+
         var amount = balanceRound((zBalance - 10000) / magnitude);
         // no more than 100 ZEC at a time
         if (amount > 100.0)
             amount = 100.0;
-        
+
         var params = [poolOptions.zAddress, [{'address': poolOptions.tAddress, 'amount': amount}]];
         daemon.cmd('z_sendmany', params,
             function (result) {
@@ -278,112 +282,121 @@ function SetupForPool(logger, poolOptions, setupFinished){
             }
         );
     }
-    
-    function cacheZCashNetworkStats () {
+
+    function cacheNetworkStats () {
         var params = null;
         daemon.cmd('getmininginfo', params,
             function (result) {
+                var finalRedisCommands = [];
+                var coin = logComponent;
+
                 if (result.error) {
-                    logger.error(logSystem, logComponent, 'Error getting stats from zcashd'
+                    logger.error(logSystem, logComponent, 'Error with RPC call `getmininginfo`'
                         + JSON.stringify(result.error));
+                    return;
                 } else {
-                    logger.special(logSystem, logComponent, "Updating "+logComponent+" network stats...");
-                    var coin = logComponent;
-                    var finalRedisCommands = [];
-                    finalRedisCommands.push(['hset', coin + ':stats', 'networkBlocks', result[0].response.blocks]);
-                    finalRedisCommands.push(['hset', coin + ':stats', 'networkDiff', result[0].response.difficulty]);
-                    finalRedisCommands.push(['hset', coin + ':stats', 'networkSols', result[0].response.networksolps]);
-                    redisClient.multi(finalRedisCommands).exec(function(error, results){
-                        if (error){
-                            logger.error(logSystem, logComponent, 'Could not update zcash stats to redis ' + JSON.stringify(error));
-                            return;
-                        }                        
-                    });
+                    if (result[0].response.blocks !== null) {
+                        finalRedisCommands.push(['hset', coin + ':stats', 'networkBlocks', result[0].response.blocks]);
+                        finalRedisCommands.push(['hset', coin + ':stats', 'networkDiff', result[0].response.difficulty]);
+                        finalRedisCommands.push(['hset', coin + ':stats', 'networkSols', result[0].response.networksolps]);
+                    } else {
+                        logger.error(logSystem, logComponent, "Error parse RPC call reponse.blocks tp `getmininginfo`." + JSON.stringify(result[0].response));
+                    }
                 }
-                daemon.cmd('getinfo', params,
+                daemon.cmd('getnetworkinfo', params,
                     function (result) {
                         if (result.error) {
-                            logger.error(logSystem, logComponent, 'Error getting stats from zcashd'
+                            logger.error(logSystem, logComponent, 'Error with RPC call `getnetworkinfo`'
                                 + JSON.stringify(result.error));
+                            return;
                         } else {
-                            var coin = logComponent;
-                            var finalRedisCommands = [];
-                            finalRedisCommands.push(['hset', coin + ':stats', 'networkConnections', result[0].response.connections]);
-                            redisClient.multi(finalRedisCommands).exec(function(error, results){
-                                if (error){
-                                    logger.error(logSystem, logComponent, 'Could not update zcash stats to redis ' + JSON.stringify(error));
-                                    return;
-                                }                        
-                            });    
+                            if (result[0].response !== null) {
+                                finalRedisCommands.push(['hset', coin + ':stats', 'networkConnections', result[0].response.connections]);
+                                finalRedisCommands.push(['hset', coin + ':stats', 'networkVersion', result[0].response.version]);
+                                finalRedisCommands.push(['hset', coin + ':stats', 'networkSubVersion', result[0].response.subversion]);
+                                finalRedisCommands.push(['hset', coin + ':stats', 'networkProtocolVersion', result[0].response.protocolversion]);
+                            } else {
+                                logger.error(logSystem, logComponent, "Error parse RPC call response to `getnetworkinfo`." + JSON.stringify(result[0].response));
+                            }
                         }
+                        redisClient.multi(finalRedisCommands).exec(function(error, results){
+                            if (error){
+                                logger.error(logSystem, logComponent, 'Error update coin stats to redis ' + JSON.stringify(error));
+                                return;
+                            }
+                        });
                     }
-                );            
+                );
             }
         );
     }
-    
+
     // run coinbase coin transfers every x minutes
     var intervalState = 0; // do not send ZtoT and TtoZ and same time, this results in operation failed!
     var interval = poolOptions.walletInterval * 60 * 1000; // run every x minutes
     setInterval(function() {
-        intervalState++;
-        switch (intervalState){
-            case 1:
-            listUnspent(poolOptions.address, null, 1, false, sendTToZ);
-            break;
-            default:
-            listUnspentZ(poolOptions.zAddress, 1, false, sendZToT);
-            //listUnspent(null, poolOptions.address, 1, true, function (){}); 
-            intervalState = 0;
-            break;
+        // shielding not required for some equihash coins
+        if (requireShielding === true) {
+            intervalState++;
+            switch (intervalState) {
+                case 1:
+                    listUnspent(poolOptions.address, null, 10, false, sendTToZ);
+                    break;
+                default:
+                    listUnspentZ(poolOptions.zAddress, 10, false, sendZToT);
+                    intervalState = 0;
+                    break;
+            }
         }
-        // update zcash stats
-        cacheZCashNetworkStats();
+        // update network stats using coin daemon
+        cacheNetworkStats();
     }, interval);
-
+    
     // check operation statuses every x seconds
     var opid_interval =  poolOptions.walletInterval * 1000;
-    setInterval(function(){
-       var checkOpIdSuccessAndGetResult = function(ops) {
-          ops.forEach(function(op, i){
-            if (op.status == "success" || op.status == "failed") {
-                daemon.cmd('z_getoperationresult', [[op.id]], function (result) {
-                    if (result.error) {
-                        logger.warning(logSystem, logComponent, 'Unable to get payment operation id result ' + JSON.stringify(result));
-                    }
-                    if (result.response) {
-                        if (opidCount > 0) {
-                            opidCount = 0;
+    // shielding not required for some equihash coins
+    if (requireShielding === true) {
+        setInterval(function(){
+           var checkOpIdSuccessAndGetResult = function(ops) {
+              ops.forEach(function(op, i){
+                if (op.status == "success" || op.status == "failed") {
+                    daemon.cmd('z_getoperationresult', [[op.id]], function (result) {
+                        if (result.error) {
+                            logger.warning(logSystem, logComponent, 'Unable to get payment operation id result ' + JSON.stringify(result));
                         }
-                        if (op.status == "failed") {
-                            if (op.error) {
-                              logger.error(logSystem, logComponent, "Payment operation failed " + op.id + " " + op.error.code +", " + op.error.message);
-                            } else {
-                              logger.error(logSystem, logComponent, "Payment operation failed " + op.id);
+                        if (result.response) {
+                            if (opidCount > 0) {
+                                opidCount = 0;
                             }
-                        } else {
-                            logger.special(logSystem, logComponent, 'Payment operation success ' + op.id + '  txid: ' + op.result.txid);
+                            if (op.status == "failed") {
+                                if (op.error) {
+                                  logger.error(logSystem, logComponent, "Payment operation failed " + op.id + " " + op.error.code +", " + op.error.message);
+                                } else {
+                                  logger.error(logSystem, logComponent, "Payment operation failed " + op.id);
+                                }
+                            } else {
+                                logger.special(logSystem, logComponent, 'Payment operation success ' + op.id + '  txid: ' + op.result.txid);
+                            }
                         }
+                    }, true, true);
+                } else if (op.status == "executing") {
+                    if (opidCount == 0) {
+                        opidCount++;
+                        logger.special(logSystem, logComponent, 'Payment operation in progress ' + op.id );
                     }
-                }, true, true);
-            } else if (op.status == "executing") {
-                if (opidCount == 0) {
-                    opidCount++;
-                    logger.special(logSystem, logComponent, 'Payment operation in progress ' + op.id );
                 }
-            }
-          });
-       };
-       daemon.cmd('z_getoperationstatus', null, function (result) {
-          if (result.error) {
-            logger.warning(logSystem, logComponent, 'Unable to get operation ids for clearing.');
-          }
-          if (result.response) {
-            checkOpIdSuccessAndGetResult(result.response);
-          }
-       }, true, true);
-    }, opid_interval);
-
+              });
+           };
+           daemon.cmd('z_getoperationstatus', null, function (result) {
+              if (result.error) {
+                logger.warning(logSystem, logComponent, 'Unable to get operation ids for clearing.');
+              }
+              if (result.response) {
+                checkOpIdSuccessAndGetResult(result.response);
+              }
+           }, true, true);
+        }, opid_interval);
+    }
 
     var satoshisToCoins = function(satoshis){
         return parseFloat((satoshis / magnitude).toFixed(coinPrecision));
@@ -478,7 +491,7 @@ function SetupForPool(logger, poolOptions, setupFinished){
                     }
                     
                     // update confirmations in redis for pending blocks
-                    var confirmsUpdate = blockDetails.map(function(b){
+                    var confirmsUpdate = blockDetails.map(function(b) {
                         if (b.result != null && b.result.confirmations > 0) {
                             if (b.result.confirmations > 100) {
                                 return ['hdel', logComponent + ':blocksPendingConfirms', b.result.hash];    
@@ -609,10 +622,16 @@ function SetupForPool(logger, poolOptions, setupFinished){
                                         + round.txHash);
                                     return;
                                 }
-
+                                
+                                // TODO, estimate transaction fees, make dynamic
+                                var fee = 0.00005; // komodo
+                                if (logComponent != "komodo") {
+                                    fee = 0.0004; // all other coins
+                                }
+                                
                                 round.category = generationTx.category;
                                 if (round.category === 'generate') {
-                                    round.reward = generationTx.amount - 0.0004 || generationTx.value - 0.0004; // TODO: Adjust fees to be dynamic
+                                    round.reward = balanceRound(generationTx.amount - fee) || balanceRound(generationTx.value - fee); // TODO: Adjust fees to be dynamic
                                 }
                                 
                             });
@@ -643,18 +662,32 @@ function SetupForPool(logger, poolOptions, setupFinished){
                                 }
                             });
 
-                            // check if we have enough tAddress funds to send payments
-                            var totalOwed = 0;
-                            for (var i = 0; i < rounds.length; i++) {
-                                totalOwed = totalOwed + (rounds[i].reward * magnitude) - 4000; // TODO: make tx fees dynamic
+                            // TODO, estimate transaction fees, make dynamic
+                            var fee = 500; // komodo
+                            if (logComponent != "komodo") {
+                                fee = 4000; // all other coins
                             }
                             
-                            listUnspent(null, poolOptions.address, 1, false, function (error, tBalance){
-                                if (tBalance < totalOwed) {
-                                    logger.error(logSystem, logComponent, (tBalance / magnitude).toFixed(8) + ' is not enough payment funds to process ' + (totalOwed / magnitude).toFixed(8) + ' of payments. (Possibly due to pending txs)');
+                            // calculate what the pool owes its miners
+                            var totalOwed = parseInt(0);
+                            for (var i = 0; i < rounds.length; i++) {
+                                totalOwed = totalOwed + Math.round(rounds[i].reward * magnitude) - fee; // TODO: make tx fees dynamic
+                            }
+                            
+                            var notAddr = null;
+                            if (requireShielding === true) {
+                                notAddr = poolOptions.address;
+                            }
+                            
+                            // check if we have enough tAddress funds to brgin payment processing
+                            listUnspent(null, notAddr, 10, false, function (error, tBalance){
+                                if (error) {
+                                    logger.error(logSystem, logComponent, 'Error checking pool balance before payouts. (Unable to begin payment process)');
+                                    return callback(true);                                    
+                                } else if (tBalance < totalOwed) {
+                                    logger.error(logSystem, logComponent,  'Insufficient pool funds to being payment process; '+(tBalance / magnitude).toFixed(8) + ' < ' + (totalOwed / magnitude).toFixed(8)+'. (Possibly due to pending txs) ');
                                     return callback(true);
-                                }
-                                else {
+                                } else {
                                     // zcash daemon does not support account feature
                                     addressAccount = "";
                                     callback(null, workers, rounds, addressAccount);
@@ -882,11 +915,12 @@ function SetupForPool(logger, poolOptions, setupFinished){
             },
             function(workers, rounds, callback){
 
-                var totalPaid = 0;
+                var totalPaid = parseFloat(0);
 
                 var balanceUpdateCommands = [];
                 var workerPayoutsCommand = [];
 
+                // update worker paid/balance stats
                 for (var w in workers) {
                     var worker = workers[w];
                     if (worker.balanceChange !== 0){
@@ -916,6 +950,7 @@ function SetupForPool(logger, poolOptions, setupFinished){
                     }
                 };
 
+                // handle the round
                 rounds.forEach(function(r){
                     switch(r.category){
                         case 'kicked':
@@ -993,6 +1028,5 @@ function SetupForPool(logger, poolOptions, setupFinished){
         }
         else return address;
     };
-
 
 }

@@ -28,7 +28,7 @@ module.exports = function(logger, portalConfig, poolConfigs){
 					var workers = {};
 					var address = url_parms[1] || null;
 					//res.end(portalStats.getWorkerStats(address));
-					if (address != null && address.length > 0 && address.startsWith('t'),('R')) {
+					if (address != null && address.length > 0 && (address.startsWith('t') || address.startsWith('R'))) {
 						// make sure it is just the miners address
 						address = address.split(".")[0];
 						// get miners balance along with worker balances
@@ -56,7 +56,6 @@ module.exports = function(logger, portalConfig, poolConfigs){
 										//console.log(portalStats.statHistory[h].time);
 									}
 								}
-								// note, h is the last record from above loop, which is latest
 								for(var pool in portalStats.stats.pools) {
 								  for(var w in portalStats.stats.pools[pool].workers){
 									  if (w.startsWith(address)) {
@@ -70,7 +69,7 @@ module.exports = function(logger, portalConfig, poolConfigs){
 										workers[w].balance = (workers[w].balance || 0);
 										workers[w].paid = (workers[w].paid || 0);
 										totalHash += portalStats.stats.pools[pool].workers[w].hashrate;
-										networkSols = portalStats.stats.pools[pool].poolStats.networkSols;
+                                        networkSols = portalStats.stats.pools[pool].poolStats.networkSols;
 									  }
 								  }
 								}
