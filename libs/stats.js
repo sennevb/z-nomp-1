@@ -170,13 +170,12 @@ module.exports = function(logger, portalConfig, poolConfigs){
             cback(balanceRound(total).toFixed(8));
         });
     };
-        
+	
 	this.getTotalSharesByAddress = function(address, cback) {
 	    var a = address.split(".")[0];
         var client = redisClients[0].client,
             coins = redisClients[0].coins,
             shares = [];
-            
 		var totalShares = 0;
 		async.each(_this.stats.pools, function(pool, pcb) {
 			var coin = String(_this.stats.pools[pool.name].name);
@@ -307,12 +306,6 @@ module.exports = function(logger, portalConfig, poolConfigs){
                 else{
                     for(var i = 0; i < replies.length; i += commandsPerCoin){
                         var coinName = client.coins[i / commandsPerCoin | 0];
-                        var marketStats = {};
-                        if (replies[i + 2]) {
-                            if (replies[i + 2].coinmarketcap) {
-                                marketStats = replies[i + 2] ? (JSON.parse(replies[i + 2].coinmarketcap)[0] || 0) : 0;
-                            }
-                        }
                         var coinStats = {
                             name: coinName,
                             symbol: poolConfigs[coinName].coin.symbol.toUpperCase(),
@@ -327,11 +320,8 @@ module.exports = function(logger, portalConfig, poolConfigs){
 								networkSols: replies[i + 2] ? (replies[i + 2].networkSols || 0) : 0, 
 								networkSolsString: getReadableNetworkHashRateString(replies[i + 2] ? (replies[i + 2].networkSols || 0) : 0), 
 								networkDiff: replies[i + 2] ? (replies[i + 2].networkDiff || 0) : 0,
-								networkConnections: replies[i + 2] ? (replies[i + 2].networkConnections || 0) : 0,
-                                networkVersion: replies[i + 2] ? (replies[i + 2].networkSubVersion || 0) : 0,
-                                networkProtocolVersion: replies[i + 2] ? (replies[i + 2].networkProtocolVersion || 0) : 0
+								networkConnections: replies[i + 2] ? (replies[i + 2].networkConnections || 0) : 0
                             },
-                            marketStats: marketStats,
                             blocks: {
                                 pending: replies[i + 3],
                                 confirmed: replies[i + 4],
