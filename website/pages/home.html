@@ -2,7 +2,7 @@
 {{ function readableDate(a){ return new Date(parseInt(a)).toString(); } }}
 <div class="col-lg-8 col-8-10">         
 <div id="home">
-{{ for(var pool in it.stats.pools) { }}
+{{ var i=0; for(var pool in it.stats.pools) { }}
     <div class="row">     
         <div style="margin-top: 30px" class="col-md-12">
         <h1 class="text-center">Welcome to our {{=capitalizeFirstLetter(it.stats.pools[pool].name)}} mining pool</h1>
@@ -18,7 +18,6 @@
     <h2 class="text-center">Pool Status</h2>
     </div>
 </div>
-{{ for(var pool in it.stats.pools) { }}
 <div class="row">
        <div class="col-md-2 text-center">
             <div style="height: 130px" class="panel panel-warning">
