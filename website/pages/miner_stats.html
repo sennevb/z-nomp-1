@@ -1,0 +1,143 @@
+<style>
+
+    #topCharts{
+        padding-left: 18px;
+		padding-right: 18px;
+		padding-top: 18px;
+		padding-bottom: 0px;
+    }
+
+    #topCharts > div > div > svg{
+        display: block;
+        height: 280px;
+    }
+
+    .chartWrapper{
+        border: solid 1px #c7c7c7;
+        border-radius: 5px;
+        padding: 5px;
+        margin-bottom: 18px;
+    }
+
+    .chartLabel{
+        font-size: 1.2em;
+        text-align: center;
+        padding: 4px;
+    }
+
+    .chartHolder{
+
+    }
+
+	#boxesLower {
+        margin: 0 9px;
+    }
+    #boxesLower > div {
+        display: flex;
+    }
+    #boxesLower > div > div {
+        flex: 1 1 auto;
+        margin: 0 9px 18px 9px;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+    }
+    .boxLowerHeader{
+        font-size: 1.3em;
+        margin: 0 0 5px 10px;
+    }
+
+    #boxStatsLeft{
+        color: black;
+        background-color: #cccccc;
+    }
+    #boxStatsRight{
+		color: black;
+        background-color: #cccccc;
+    }
+    .boxStats{
+        color: white;
+    }
+    .boxStatsList{
+        display: flex;
+        flex-flow: row wrap;
+        justify-content: space-around;
+        opacity: 0.77;
+        margin-bottom: 5px;
+        flex: 1 1 auto;
+        align-content: center;
+    }
+    .boxStatsList i.fa{
+        height: 15px;
+        width: 33px;
+        text-align: center;
+    }
+    .boxStatsList > div{
+        padding: 5px 20px;
+    }
+    .boxStatsList > div > div{
+        padding: 3px;
+    }
+
+</style>
+
+<div id="topCharts">
+    <div class="chartWrapper">
+        <div class="chartLabel">
+			<!--<div style="float:left; padding-right: 18px;"><i class="fa fa-users"></i><span id="statsWorkers">...</span></div>-->			
+			<div style="float:left; margin-right: 9px;">{{=String(it.stats.address).split(".")[0]}}</div>
+			<div style="float:right; padding-left: 18px;"><small><i class="fa fa-tachometer"></i> <span id="statsHashrate">...</span></small></div>
+			<div style="float:right; padding-left: 18px;"><small><i class="fa fa-gavel"></i> Luck <span id="statsLuckDays">...</span> Days</small></div>
+			<div style="float:right; padding-left: 18px;"><small><i class="fa fa-money"></i> <span id="statsTotalPaid">...</span> ZEC</small></div>
+			<div style="float:right; padding-left: 18px;"><small><i class="fa fa-cog"></i> <span id="statsTotalShares">...</span></small></div>
+		</div>
+		<div class="chartHolder"><svg id="workerHashrate"/></div>
+    </div>
+</div>
+
+<div id="boxesLower">
+            {{ for(var pool in it.stats.pools) { }}
+			{{ var i=0; for(var w in it.stats.pools[pool].workers) { }}
+			
+			{{if (w.startsWith(String(it.stats.address).split(".")[0])) { i++; }}
+			<div class="boxStats" id="boxStatsLeft" style="float:left; margin: 9px; min-width: 260px;">
+            <div class="boxStatsList">
+				<div class="boxLowerHeader">{{=String(w).split('.').length>1?String(w).split('.')[1]:String(i)}}</div>				
+				{{var workerstat = it.stats.pools[pool].workers[w];}}
+				{{if (workerstat) { }}
+                <div>
+                    <div><i class="fa fa-tachometer"></i><span id="statsHashrate{{=w}}">{{=workerstat.hashrateString}}</span></div>
+					<div><i class="fa fa-shield"></i><small>Diff:</small> <span id="statsDiff{{=w}}">{{=workerstat.diff}}</span></div>
+					<div><i class="fa fa-cog"></i><small>Shares:</small> <span id="statsShares{{=w}}">{{=Math.round(workerstat.currRoundShares * 100) / 100}}</span></div>
+					<!--
+					<div><i class="fa fa-tachometer"></i><span id="statsInvalidShares{{=w}}">Invalid: {{=Math.round(workerstat.invalidshares * 100) / 100}}</span></div>
+					<div><i class="fa fa-tachometer"></i><span id="statsEfficiency{{=w}}">Efficiency: {{? workerstat.shares > 0}} {{=Math.floor(10000 * workerstat.shares / (workerstat.shares + workerstat.invalidshares)) / 100}}% {{??}} 0% {{?}}</span></div>
+					-->
+					<div><i class="fa fa-gavel"></i><small>Luck <span id="statsLuckDays{{=w}}">{{=workerstat.luckDays}}</span> Days</small></div>
+					<div><i class="fa fa-money"></i><small><span id="statsPaid{{=w}}">
+					{{ for(var balance in it.stats.balances) { }}
+						{{if (it.stats.balances[balance].worker == w) { }}
+						  {{if (it.stats.balances[balance].paid <= 0) { }}
+							0.00
+						  {{ } else { }}
+							{{=it.stats.balances[balance].paid}}
+						  {{ } }}
+						{{ } }}
+					{{ } }}
+					</span>
+					ZEC</small>
+					</div>
+                </div>
+				{{ } }}
+			</div>
+			</div>
+			{{ } }}
+			{{ } }}
+            {{ } }}
+</div>
+
+<script>
+	window.statsSource = new EventSource("/api/live_stats");
+	var _miner = "{{=String(it.stats.address).split(".")[0]}}";
+    document.querySelector('main').appendChild(document.createElement('script')).src = '/static/miner_stats.js';
+</script>
